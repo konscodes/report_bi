@@ -7,6 +7,7 @@ Prepare the data from xlsx files for Power Bi import:
 '''
 
 from pathlib import Path
+from datetime import datetime
 
 import easygui
 import pandas as pd
@@ -72,7 +73,6 @@ combined_data = pd.DataFrame()
 
 # Main loop for multiple processing sessions
 while True:
-    # Create a tkinter root window (this won't be displayed)
     selected_directory = easygui.diropenbox(title='Select the root directory')
 
     if selected_directory:
@@ -90,9 +90,13 @@ while True:
         break
 
 if not combined_data.empty:
+    easygui.msgbox('Choose the location to save the exported data.')
+    save_directory = easygui.diropenbox(title='Select the root directory')
+
     # Export the combined processed data to a CSV file
-    output_csv_path = 'all_processed_data.csv'
+    current_date = datetime.now().strftime('%Y%m%d')
+    output_csv_path = save_directory + f'\combined_data_{current_date}.csv'
     combined_data.to_csv(output_csv_path, index=False, encoding='utf_8_sig')
-    print('All data exported to CSV:', output_csv_path)
+    print('\nAll data exported to CSV:', output_csv_path)
 else:
     print('No valid data to export.')

@@ -12,8 +12,46 @@ from datetime import datetime
 import easygui
 import pandas as pd
 
+def select_directory() -> str:
+    '''Prompt user to select a directory using easygui.'''
+    selected_directory = easygui.diropenbox(title='Select the root directory')
+    return selected_directory or ''  # Return an empty string if None is returned
 
-def read_data(file_path) -> pd.DataFrame:
+
+def process_data_from_directory(directory: str, combined_data: pd.DataFrame) -> pd.DataFrame:
+    '''Process all files in the provided directory and return combined DataFrame.'''
+    if directory:
+        processed_data = process_folder(Path(directory))
+        if processed_data is not None:
+            if not processed_data.empty:
+                combined_data = pd.concat([combined_data, processed_data], ignore_index=True)
+            else:
+                print('No valid data found.')
+        else:
+            print('Error occurred while processing data.')
+    else:
+        print('No directory selected.')
+    return combined_data
+
+
+def process_folder(folder) -> pd.DataFrame | None:
+    all_data = []
+    for file_path in folder.glob('**/*.xlsx'):
+        print('\nProcessing:', file_path.name)
+        try:
+            data = read_file(str(file_path))
+            if data is not None:
+                all_data.append(data)
+        except KeyboardInterrupt:
+            print('Execution stopped by user.')
+            return None
+    
+    if all_data:
+        return pd.concat(all_data, ignore_index=True)
+    return pd.DataFrame()
+
+
+def read_file(file_path) -> pd.DataFrame | None:
     try:
         # Read data from Excel sheet (Work List) with header at row 3
         data = pd.read_excel(file_path, sheet_name='Work List', header=2)
@@ -50,53 +88,36 @@ def read_data(file_path) -> pd.DataFrame:
                 raise KeyboardInterrupt  # Stop the execution
         else:
             raise # Re-raise the exception for other ValueError cases
-
-
-def process_folder(folder):
-    all_data = pd.DataFrame()
     
-    for file_path in folder.glob('**/*.xlsx'):
-        print('\nProcessing:', file_path.name)
-        try:
-            data = read_data(str(file_path))
-            if data is not None:
-                all_data = pd.concat([all_data, data], ignore_index=True)
-        except KeyboardInterrupt:
-            print('Execution stopped by user.')
-            return None
-    
-    return all_data
+    return None
 
 
-# Initialize the DataFrame to accumulate all processed data
-combined_data = pd.DataFrame()
+def main():
+    combined_data = pd.DataFrame()
 
-# Main loop for multiple processing sessions
-while True:
-    selected_directory = easygui.diropenbox(title='Select the root directory')
+    while True:
+        selected_directory = select_directory()
+        combined_data = process_data_from_directory(selected_directory, combined_data)
 
-    if selected_directory:
-        # Process all files in all included folders using pathlib
-        processed_data = process_folder(Path(selected_directory))
-        if processed_data.empty:
-            print('No valid data found.')
+        keep_going = easygui.ynbox('Do you want to process more data?', title='Continue?')
+        if not keep_going:
+            break
+
+    if not combined_data.empty:
+        # Export the combined processed data to a CSV file
+        easygui.msgbox('Choose the location to save the exported data.')
+        save_directory = easygui.diropenbox(title='Select the root directory')
+
+        if save_directory:
+            current_date = datetime.now().strftime('%Y%m%d')
+            output_csv_path = Path(save_directory) / f'combined_data_{current_date}.csv'
+            combined_data.to_csv(output_csv_path, index=False, encoding='utf_8_sig')
+            print('\nAll data exported to CSV:', output_csv_path)
         else:
-            combined_data = pd.concat([combined_data, processed_data], ignore_index=True)
+            print('No valid directory selected.')
     else:
-        print('No directory selected.')
-    
-    keep_going = easygui.ynbox('Do you want to process more data?', title='Continue?')
-    if not keep_going:
-        break
+        print('No valid data to export.')
 
-if not combined_data.empty:
-    easygui.msgbox('Choose the location to save the exported data.')
-    save_directory = easygui.diropenbox(title='Select the root directory')
 
-    # Export the combined processed data to a CSV file
-    current_date = datetime.now().strftime('%Y%m%d')
-    output_csv_path = save_directory + f'\combined_data_{current_date}.csv'
-    combined_data.to_csv(output_csv_path, index=False, encoding='utf_8_sig')
-    print('\nAll data exported to CSV:', output_csv_path)
-else:
-    print('No valid data to export.')
+if __name__ == "__main__":
+    main()

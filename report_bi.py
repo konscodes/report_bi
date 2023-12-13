@@ -92,6 +92,19 @@ def read_file(file_path) -> pd.DataFrame | None:
     return None
 
 
+def generate_monthly_report(combined_data: pd.DataFrame):
+    combined_data['Planned visit date/ time'] = pd.to_datetime(combined_data['Planned visit date/ time'])
+    combined_data['Month'] = combined_data['Planned visit date/ time'].dt.to_period('M')
+
+    # Update the Month column if the day of the month is greater than 25
+    condition = combined_data['Planned visit date/ time'].dt.day > 25
+    combined_data.loc[condition, 'Month'] += 1
+
+    #monthly_summary = combined_data.groupby('Month')['G-TOTAL'].sum().reset_index()
+    monthly_summary = combined_data.groupby(['Month', 'Svc Type'])['G-TOTAL'].sum().reset_index()
+    return monthly_summary
+
+
 def main():
     combined_data = pd.DataFrame()
 
@@ -113,8 +126,17 @@ def main():
             output_csv_path = Path(save_directory) / f'combined_data_{current_date}.csv'
             combined_data.to_csv(output_csv_path, index=False, encoding='utf_8_sig')
             print('\nAll data exported to CSV:', output_csv_path)
+            
+            # Generate and export monthly reports
+            output_monthly = Path(save_directory) / f'monthly_data_{current_date}.csv'
+            monthly = generate_monthly_report(combined_data)
+            monthly.to_csv(output_monthly, index=False, encoding='utf_8_sig')
+            print('\nMonthly breakdown exported to CSV:', output_monthly)
+
         else:
             print('No valid directory selected.')
+        
+
     else:
         print('No valid data to export.')
 
